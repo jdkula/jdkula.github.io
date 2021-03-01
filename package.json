@@ -1,0 +1,19 @@
+{
+  "name": "cs147-website",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:eleven-point-five/website.git",
+  "author": "Team Eleven Point Five",
+  "license": "MIT",
+  "scripts": {
+    "dev": "reload -p 3000 -b",
+    "dev:silent": "reload -p 3000",
+    "start": "http-server",
+    "format": "prettier -w *.html"
+  },
+  "devDependencies": {
+    "prettier": "^2.2.1",
+    "http-server": "^0.12.3",
+    "reload": "^3.1.1"
+  }
+}
