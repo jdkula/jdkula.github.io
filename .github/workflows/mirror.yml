@@ -1,0 +1,60 @@
+name: Mirror to Myth
+
+env:
+  # !! WARNING !! If true, the directory will be ~replaced~ with the contents of your repository! Other files will be deleted!
+  DELETE_OLD: false
+
+  # The target myth path
+  MYTH_PATH: ${{ secrets.MYTH_PATH }}
+
+  # Defines excludes for rsync -- defaults to node_modules, package.json, and dotfiles. Space separated.
+  EXCLUDES: .* node_modules/ package.json
+
+  # These should be defined in the project's secret page:
+  # https://github.com/<your-namespace>/<your-repo>/settings/secrets/actions
+  MYTH_USERNAME: ${{ secrets.MYTH_USERNAME }}
+  MYTH_PASSWORD: ${{ secrets.MYTH_PASSWORD }}
+
+# Controls when the action will run.
+on:
+  # Triggers the workflow on push; you can change which branch triggers below.
+  push:
+    branches: [main]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE.
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      # This mirrors your code to the selected Myth directory.
+      - name: Mirror to Myth
+        run: |
+          # === Creates and sets up askpass program so we can non-interactively use rsync to push to Myth ===
+          cat > $HOME/ssh_password.sh << EOF
+          #!/bin/sh
+          echo $MYTH_PASSWORD
+          EOF
+
+          chmod +x $HOME/ssh_password.sh
+          export DISPLAY=:
+          export SSH_ASKPASS="$HOME/ssh_password.sh"
+
+          # === Determine whether or not a true sync should happen (i.e. deleting old/nonexistent files) ===
+          export DELETE_OLD=$(echo $DELETE_OLD | tr '[:upper:]' '[:lower:]')
+          [[ $DELETE_OLD = 'true' ]] && export DELETE='--delete'
+
+          # === Create exclude list for rsync ==
+          echo -n "$EXCLUDES" | tr " " "\n" > $HOME/excludes.txt
+
+          # === This is the magic line that copies to Myth! ===
+          rsync --exclude-from="$HOME/excludes.txt" $DELETE -irlche 'setsid ssh -o StrictHostKeyChecking=no' $GITHUB_WORKSPACE/ $MYTH_USERNAME@myth.stanford.edu:$MYTH_PATH
+
+          # === Overkill-securely deletes your password from GitHub's compute servers :) ===
+          shred -zun 100 $HOME/ssh_password.sh
